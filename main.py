@@ -3,14 +3,16 @@ import json
 import logging
 import os
 
-import config
 import requests
 from bs4 import BeautifulSoup
 from termcolor import colored
 from tqdm import tqdm
 
+import config
+
 # global vars
 debug_mode = False
+nvd_mode = False
 logger = logging.getLogger(config.LOGGER_NAME)
 
 
@@ -20,12 +22,16 @@ def parse_args() -> None:
     """
     parser = argparse.ArgumentParser(description="CVE Scraper")
     parser.add_argument("-d", "--debug", action="store_true", help="debug mode ")
+    parser.add_argument(
+        "-n", "--nvd", action="store_true", help="fetch from nvd or mitre website"
+    )
     args = parser.parse_args()
-    global debug_mode
+    global debug_mode, nvd_mode
     debug_mode = args.debug
+    nvd_mode = args.nvd
 
 
-def fetch_cve_record(cve_id: str, component: str, version: str) -> None:
+def fetch_cve_record(cve_id: str, query: str) -> None:
     """
     fetch cve record and save it to local disk
     """
@@ -34,7 +40,7 @@ def fetch_cve_record(cve_id: str, component: str, version: str) -> None:
     res = resp.json()
 
     # concatenate filename
-    dir = os.path.join(config.DATA_DIR, f"{component}:{version}")
+    dir = os.path.join(config.DATA_DIR, query)
     if not os.path.exists(dir):
         os.makedirs(dir)
     filename = os.path.join(dir, f"{cve_id}.json")
@@ -163,12 +169,8 @@ def find_cves(cpe_search_link: str) -> list[str]:
     return list(total_cve_ids)
 
 
-def start_crawl() -> None:
+def crawl_nvd() -> None:
     # find cpe and corresponding cves
-    if debug_mode:
-        url = "https://nvd.nist.gov/vuln/search/results?form_type=Advanced&results_type=overview&isCpeNameSearch=true&seach_type=all&query=cpe:2.3:a:gradle:gradle:8.1.0:rc1:*:*:*:*:*:*"
-        find_cves(url)
-        return
 
     component = input(colored("Enter the component (e.g., Apache): ", "cyan"))
     version = input(colored("Enter the version (e.g., 4.2.1): ", "cyan"))
@@ -187,9 +189,17 @@ def start_crawl() -> None:
     # fetch each
     logger.info("start to collect each cve...")
     for cve_id in tqdm(total_cve_ids):
-        fetch_cve_record(cve_id, component, version)
+        fetch_cve_record(cve_id, f"{component}:{version}")
+
+
+def crawl_mitre() -> None:
+    # TODO: implement mitre scraper
+    raise NotImplementedError()
 
 
 if __name__ == "__main__":
     parse_args()
-    start_crawl()
+    if nvd_mode:
+        crawl_nvd()
+    else:
+        crawl_mitre()
