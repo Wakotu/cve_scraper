@@ -117,9 +117,6 @@ def find_cves(cpe_search_link: str) -> list[str]:
     start_index = 0
     total_num = None
 
-    if globals.debug_mode:
-        __import__("ipdb").set_trace()
-
     while total_num is None or start_index < total_num:
         cve_ids, start_index, total_num = find_cves_part(
             cpe_search_link, start_index, total_num
@@ -149,7 +146,4 @@ def main() -> None:
         total_cve_ids.update(cve_ids)
     total_cve_ids = list(total_cve_ids)
 
-    # fetch each
-    logger.info("start to collect each cve...")
-    for cve_id in tqdm(total_cve_ids):
-        utils.fetch_cve_record(cve_id, f"{component}:{version}")
+    utils.fetch_and_conclude(total_cve_ids, f"{component}:{version}")

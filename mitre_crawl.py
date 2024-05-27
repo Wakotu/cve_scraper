@@ -6,6 +6,7 @@ from termcolor import colored
 from tqdm import tqdm
 
 import config
+import globals
 import utils
 
 logger = logging.getLogger(config.LOGGER_NAME)
@@ -26,7 +27,6 @@ def mitre_find_cve_ids(query: str) -> list[str]:
     total_tag = soup.select("#CenterPane > div.smaller > b")[0]
     total_num = int(total_tag.text)
     cve_id_tags = soup.select("#TableWithRules > table > tr > td:nth-child(1) > a")
-    # __import__("ipdb").set_trace()
     assert len(cve_id_tags) == total_num
     for tag in cve_id_tags:
         cve_id_list.append(tag.text)
@@ -35,12 +35,13 @@ def mitre_find_cve_ids(query: str) -> list[str]:
 
 
 def main() -> None:
-    # TODO: implement mitre scraper
+    if globals.debug_mode:
+        query = "ffmpeg"
+        utils.gen_report(query)
+        return
 
     query = input(colored("Enter the keyword (e.g., Apache): ", "cyan"))
     logger.info("collecting cve ids...")
     cve_id_list = mitre_find_cve_ids(query)
 
-    logger.info("start to collect each cve...")
-    for cve_id in tqdm(cve_id_list):
-        utils.fetch_cve_record(cve_id, query)
+    utils.fetch_and_conclude(cve_id_list, query)
