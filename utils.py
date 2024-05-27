@@ -13,9 +13,11 @@ import utils
 
 logger = logging.getLogger(config.LOGGER_NAME)
 
+# NOTE: distribution type should be modeled as enum + dict
+
 
 @dataclass
-class Distribution:
+class SeverDist:
     LOW: int = 0
     MEDIUM: int = 0
     HIGH: int = 0
@@ -24,10 +26,29 @@ class Distribution:
 
 
 @dataclass
+class TimeDist:
+    # 90 - 10
+    DISTANT: int = 0
+    # 10 - 20
+    INTM: int = 0
+    # 20 - now
+    RECENT: int = 0
+
+
+@dataclass
 class Report:
     total_num: int
-    distri: Distribution
-    score: int
+    sev_dist: SeverDist
+    time_dist: TimeDist
+    score: float
+
+
+SEVERITY_SCORE = {"UNKNOWN": 1, "LOW": 2, "MEDIUM": 5, "HIGH": 8, "CRITICAL": 10}
+TIME_FACTOR = {
+    "DISTANT": 0.1,
+    "INTM": 0.3,
+    "RECENT": 1,
+}
 
 
 def fetch_and_conclude(cve_id_list: list[str], query: str) -> None:
@@ -35,18 +56,15 @@ def fetch_and_conclude(cve_id_list: list[str], query: str) -> None:
     logger.info("start to collect each cve...")
     for cve_id in tqdm(cve_id_list):
         utils.fetch_cve_record(cve_id, query)
-    score = utils.gen_report(query)
-    logger.info(f"hazard score for {query}: {score}")
-
-
-def calc_score(distri: Distribution) -> int:
-    return (
-        distri.LOW * 2
-        + distri.MEDIUM * 5
-        + distri.HIGH * 8
-        + distri.CRITICAL * 10
-        + distri.UNKNOWN
-    )
+    report = utils.gen_report(query)
+    # report logging
+    logger.info(f"report for {query}")
+    logger.info(f"total cve number: {report.total_num}, Distribution follows:")
+    distri_dict = object_to_dict(report.sev_dist)
+    assert isinstance(distri_dict, dict)
+    for key, val in distri_dict.items():
+        logger.info(f"{key}: {val}")
+    logger.info(f"hazard score: {report.score}")
 
 
 def object_to_dict(obj):
@@ -83,50 +101,89 @@ def get_query_dir(query: str) -> str:
     return dir
 
 
+def calc_score(sev: str, time: str) -> float:
+    return SEVERITY_SCORE.get(sev, 0) * TIME_FACTOR.get(time, 0)
+
+
+def collect_severity(rec: dict, sev_dist: SeverDist) -> str:
+    """
+    returns the severity string
+    """
+    try:
+        metrics = rec["containers"]["cna"]["metrics"]
+    except KeyError:
+        sev_dist.UNKNOWN += 1
+        return "UNKNOWN"
+
+    assert isinstance(metrics, list)
+    if len(metrics) != 1:
+        sev_dist.UNKNOWN += 1
+        return "UNKNOWN"
+
+    metric = metrics[0]
+    assert isinstance(metric, dict)
+
+    newest_key = ""
+    for key in metric.keys():
+        if newest_key < key:
+            newest_key = key
+    info = metric[newest_key]
+    try:
+        severity = info["baseSeverity"]
+        assert isinstance(severity, str)
+        val = getattr(sev_dist, severity) + 1
+        setattr(sev_dist, severity, val)
+        return severity
+    except KeyError:
+        sev_dist.UNKNOWN += 1
+        return "UNKNOWN"
+
+
+def collect_time(rec: dict, time_dist: TimeDist) -> str:
+    try:
+        date_str = rec["cveMetadata"]["datePublished"]
+    except KeyError:
+        raise KeyError("no pubulished date")
+
+    assert isinstance(date_str, str)
+    year = date_str.split("-")[0]
+    if year <= "2010":
+        time = "DISTANT"
+    elif year <= "2020":
+        time = "INTM"
+    else:
+        time = "RECENT"
+    val = getattr(time_dist, time) + 1
+    setattr(time_dist, time, val)
+    return time
+
+
 def collect_info(dir: str) -> Report:
     try:
         # List all entries in the directory
         entries = os.listdir(dir)
         # Count the number of entries
         num_entries = 0
-        distri = Distribution()
+        sev_dist = SeverDist()
+        time_dist = TimeDist()
+        score = 0
         for entry in entries:
             if not entry.startswith("CVE"):
                 continue
             num_entries += 1
 
-            # collect low, medium and high
-            # how to handle multi metrics? apply the newest metric verion
             filename = os.path.join(dir, entry)
             with open(filename, "r", encoding="utf-8") as f:
                 rec = json.load(f)
+
+            severity = collect_severity(rec, sev_dist)
             try:
-                metrics = rec["containers"]["cna"]["metrics"]
-            except KeyError:
-                distri.UNKNOWN += 1
-                continue
+                time = collect_time(rec, time_dist)
+            except KeyError as e:
+                assert False, f"error in time info collecting of {entry}: {e}"
+            score += calc_score(severity, time)
 
-            assert isinstance(metrics, list)
-            if len(metrics) != 1:
-                distri.UNKNOWN += 1
-                continue
-
-            metric = metrics[0]
-            assert isinstance(metric, dict)
-
-            newest_key = ""
-            for key in metric.keys():
-                if newest_key < key:
-                    newest_key = key
-            info = metric[newest_key]
-            try:
-                severity = info["baseSeverity"]
-                val = getattr(distri, severity) + 1
-                setattr(distri, severity, val)
-            except KeyError:
-                distri.UNKNOWN += 1
-        score = calc_score(distri)
-        return Report(num_entries, distri, score)
+        return Report(num_entries, sev_dist, time_dist, score)
 
     except FileNotFoundError:
         print(f"Error: The directory '{dir}' does not exist.")
@@ -139,7 +196,7 @@ def collect_info(dir: str) -> Report:
         exit(1)
 
 
-def gen_report(query: str) -> int:
+def gen_report(query: str) -> Report:
     """
     collect statistics and write to report.json and return hazard score
     """
@@ -147,11 +204,10 @@ def gen_report(query: str) -> int:
     filename = os.path.join(query_dir, "report.json")
     # collect information
     report = collect_info(query_dir)
-    score = report.score
     with open(filename, "w", encoding="utf-8") as f:
         report_dict = object_to_dict(report)
         json.dump(report_dict, f, indent=4)
-    return score
+    return report
 
 
 def fetch_cve_record(cve_id: str, query: str) -> None:
