@@ -228,7 +228,6 @@ def crawl_mitre() -> None:
     logger.info("start to collect each cve...")
     for cve_id in tqdm(cve_id_list):
         fetch_cve_record(cve_id, query)
-    raise NotImplementedError()
 
 
 if __name__ == "__main__":
