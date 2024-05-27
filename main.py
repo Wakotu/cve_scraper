@@ -39,8 +39,11 @@ def fetch_cve_record(cve_id: str, query: str) -> None:
     resp = requests.get(base_url + cve_id)
     res = resp.json()
 
-    # concatenate filename
-    dir = os.path.join(config.DATA_DIR, query)
+    # concatenate filename, dir architecture based on different mode(source)
+    if nvd_mode:
+        dir = os.path.join(config.DATA_DIR, "nvd", query)
+    else:
+        dir = os.path.join(config.DATA_DIR, "mitre", query)
     if not os.path.exists(dir):
         os.makedirs(dir)
     filename = os.path.join(dir, f"{cve_id}.json")
@@ -192,8 +195,39 @@ def crawl_nvd() -> None:
         fetch_cve_record(cve_id, f"{component}:{version}")
 
 
+def mitre_find_cve_ids(query: str) -> list[str]:
+    """
+    return: cve_id_list
+    """
+    cve_id_list = []
+    base_url = "https://cve.mitre.org/cgi-bin/cvekey.cgi"
+    params = {"keyword": query}
+    resp = requests.get(base_url, params=params)
+    assert resp.status_code == 200
+    content = resp.text
+
+    soup = BeautifulSoup(content, "html.parser")
+    total_tag = soup.select("#CenterPane > div.smaller > b")[0]
+    total_num = int(total_tag.text)
+    cve_id_tags = soup.select("#TableWithRules > table > tr > td:nth-child(1) > a")
+    # __import__("ipdb").set_trace()
+    assert len(cve_id_tags) == total_num
+    for tag in cve_id_tags:
+        cve_id_list.append(tag.text)
+
+    return cve_id_list
+
+
 def crawl_mitre() -> None:
     # TODO: implement mitre scraper
+
+    query = input(colored("Enter the keyword (e.g., Apache): ", "cyan"))
+    logger.info("collecting cve ids...")
+    cve_id_list = mitre_find_cve_ids(query)
+
+    logger.info("start to collect each cve...")
+    for cve_id in tqdm(cve_id_list):
+        fetch_cve_record(cve_id, query)
     raise NotImplementedError()
 
 
