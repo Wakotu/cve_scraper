@@ -170,7 +170,7 @@ def collect_time(rec: dict, time_dist: TimeDist) -> str:
     try:
         date_str = rec["cveMetadata"]["datePublished"]
     except KeyError:
-        raise KeyError("no pubulished date")
+        date_str = rec["cveMetadata"]["dateUpdated"]
 
     assert isinstance(date_str, str)
     year = date_str.split("-")[0]
