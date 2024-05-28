@@ -2,6 +2,7 @@ import json
 import logging
 import os
 from dataclasses import dataclass
+from json import encoder
 from typing import assert_never
 
 import colorlog
@@ -11,6 +12,9 @@ from tqdm import tqdm
 import config
 import globals
 import utils
+
+encoder.FLOAT_REPR = lambda o: format(o, ".2f")
+
 
 logger = logging.getLogger(config.LOGGER_NAME)
 
@@ -56,6 +60,8 @@ def plot_overview(queries: list[str], data: dict[str, list]) -> None:
     import matplotlib.pyplot as plt
     import numpy as np
 
+    if globals.debug_mode:
+        __import__("ipdb").set_trace()
     assert len(queries) == len(list(data.values())[0])
 
     x = np.arange(len(queries))  # the label locations
@@ -96,18 +102,22 @@ def queries_overview() -> None:
     rep_data = {"total_num": [], "score": []}
     for qr in queries:
         report_file = os.path.join(dir, qr, "report.json")
+        has_report = True
         try:
             with open(report_file, "r", encoding="utf-8") as f:
-                rep = json.load(f)
+                rep = json.load(f, parse_float=lambda x: round(float(x), 2))
         except FileNotFoundError:
             logger.warning(f"failed to find report of query {qr}")
-            continue
+            total_num = 0
+            score = 0
+            has_report = False
 
-        try:
-            total_num = rep["total_num"]
-            score = rep["score"]
-        except KeyError:
-            assert False, f"failed to collect score and num info from {qr}"
+        if has_report:
+            try:
+                total_num = rep["total_num"]
+                score = rep["score"]
+            except KeyError:
+                assert False, f"failed to collect score and num info from {qr}"
 
         rep_data["total_num"].append(total_num)
         rep_data["score"].append(score)
