@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from dataclasses import dataclass
-from sys import excepthook
+from typing import assert_never
 
 import colorlog
 import requests
@@ -52,6 +52,34 @@ TIME_FACTOR = {
 }
 
 
+def plot_overview(queries: list[str], data: dict[str, list]) -> None:
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    assert len(queries) == len(list(data.values())[0])
+
+    x = np.arange(len(queries))  # the label locations
+    width = 0.25  # the width of the bars
+    multiplier = 0
+
+    fig, ax = plt.subplots(layout="constrained")
+
+    for attribute, measurement in data.items():
+        offset = width * multiplier
+        rects = ax.bar(x + offset, measurement, width, label=attribute)
+        ax.bar_label(rects, padding=3)
+        multiplier += 1
+
+    # Add some text for labels, title and custom x-axis tick labels, etc.
+    ax.set_ylabel("metirc for query")
+    ax.set_title("local queries overview")
+    ax.set_xticks(x + width, queries)
+    ax.legend(loc="upper left", ncols=3)
+    # ax.set_ylim(0, 250)
+
+    plt.show()
+
+
 def queries_overview() -> None:
     """
     collect reports from local disk and log the information
@@ -65,6 +93,7 @@ def queries_overview() -> None:
     logger.info(f"{len(queries)} queries collected.")
 
     # handle each query
+    rep_data = {"total_num": [], "score": []}
     for qr in queries:
         report_file = os.path.join(dir, qr, "report.json")
         try:
@@ -80,7 +109,12 @@ def queries_overview() -> None:
         except KeyError:
             assert False, f"failed to collect score and num info from {qr}"
 
+        rep_data["total_num"].append(total_num)
+        rep_data["score"].append(score)
+
         logger.info(f"[{qr}] total_num: {total_num}, score: {score}")
+
+    plot_overview(queries, rep_data)
 
 
 def get_dist_str(dist_dict: dict, prompt: str) -> str:
