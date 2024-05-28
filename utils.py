@@ -2,6 +2,7 @@ import json
 import logging
 import os
 from dataclasses import dataclass
+from sys import excepthook
 
 import colorlog
 import requests
@@ -51,8 +52,39 @@ TIME_FACTOR = {
 }
 
 
+def queries_overview() -> None:
+    """
+    collect reports from local disk and log the information
+    """
+    if globals.nvd_mode:
+        dir = os.path.join(config.DATA_DIR, "nvd")
+    else:
+        dir = os.path.join(config.DATA_DIR, "mitre")
+
+    queries = os.listdir(dir)
+    logger.info(f"{len(queries)} queries collected.")
+
+    # handle each query
+    for qr in queries:
+        report_file = os.path.join(dir, qr, "report.json")
+        try:
+            with open(report_file, "r", encoding="utf-8") as f:
+                rep = json.load(f)
+        except FileNotFoundError:
+            logger.warning(f"failed to find report of query {qr}")
+            continue
+
+        try:
+            total_num = rep["total_num"]
+            score = rep["score"]
+        except KeyError:
+            assert False, f"failed to collect score and num info from {qr}"
+
+        logger.info(f"[{qr}] total_num: {total_num}, score: {score}")
+
+
 def get_dist_str(dist_dict: dict, prompt: str) -> str:
-    log_str = prompt
+    log_str = prompt + " "
     first = True
     for key, val in dist_dict.items():
         if first:
