@@ -1,11 +1,16 @@
 import argparse
 
+import config
 import globals
 import mitre_crawl
 import nvd_crawl
 
 # global vars
 globals.init()
+
+from utils import setup_logger
+
+logger = setup_logger(config.LOGGER_NAME)
 
 
 def parse_args() -> None:

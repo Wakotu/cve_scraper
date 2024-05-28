@@ -51,19 +51,37 @@ TIME_FACTOR = {
 }
 
 
+def get_dist_str(dist_dict: dict, prompt: str) -> str:
+    log_str = prompt
+    first = True
+    for key, val in dist_dict.items():
+        if first:
+            first = False
+        else:
+            log_str += ", "
+        log_str += f"{key}: {val}"
+    return log_str
+
+
 def fetch_and_conclude(cve_id_list: list[str], query: str) -> None:
 
     logger.info("start to collect each cve...")
     for cve_id in tqdm(cve_id_list):
         utils.fetch_cve_record(cve_id, query)
     report = utils.gen_report(query)
+
     # report logging
     logger.info(f"report for {query}")
     logger.info(f"total cve number: {report.total_num}, Distribution follows:")
-    distri_dict = object_to_dict(report.sev_dist)
-    assert isinstance(distri_dict, dict)
-    for key, val in distri_dict.items():
-        logger.info(f"{key}: {val}")
+
+    sev_dict = object_to_dict(report.sev_dist)
+    assert isinstance(sev_dict, dict)
+    logger.info(get_dist_str(sev_dict, "severity Distribution"))
+
+    time_dict = object_to_dict(report.time_dist)
+    assert isinstance(time_dict, dict)
+    logger.info(get_dist_str(time_dict, "time Distribution"))
+
     logger.info(f"hazard score: {report.score}")
 
 
@@ -105,10 +123,11 @@ def calc_score(sev: str, time: str) -> float:
     return SEVERITY_SCORE.get(sev, 0) * TIME_FACTOR.get(time, 0)
 
 
-def collect_severity(rec: dict, sev_dist: SeverDist) -> str:
+def collect_severity(rec: dict, sev_dist: SeverDist, entry: str = "") -> str:
     """
     returns the severity string
     """
+
     try:
         metrics = rec["containers"]["cna"]["metrics"]
     except KeyError:
@@ -123,11 +142,19 @@ def collect_severity(rec: dict, sev_dist: SeverDist) -> str:
     metric = metrics[0]
     assert isinstance(metric, dict)
 
-    newest_key = ""
+    cvss_key = ""
     for key in metric.keys():
-        if newest_key < key:
-            newest_key = key
-    info = metric[newest_key]
+        if not key.startswith("cvss"):
+            continue
+        cvss_key = key
+        break
+    if cvss_key == "":
+        sev_dist.UNKNOWN += 1
+        return "UNKNOWN"
+
+    info = metric[cvss_key]
+    assert isinstance(info, dict)
+
     try:
         severity = info["baseSeverity"]
         assert isinstance(severity, str)
@@ -176,7 +203,10 @@ def collect_info(dir: str) -> Report:
             with open(filename, "r", encoding="utf-8") as f:
                 rec = json.load(f)
 
-            severity = collect_severity(rec, sev_dist)
+            if globals.debug_mode:
+                severity = collect_severity(rec, sev_dist, entry)
+            else:
+                severity = collect_severity(rec, sev_dist)
             try:
                 time = collect_time(rec, time_dist)
             except KeyError as e:
@@ -198,7 +228,7 @@ def collect_info(dir: str) -> Report:
 
 def gen_report(query: str) -> Report:
     """
-    collect statistics and write to report.json and return hazard score
+    collect report from cve records, return report and write to `report.json`
     """
     query_dir = get_query_dir(query)
     filename = os.path.join(query_dir, "report.json")

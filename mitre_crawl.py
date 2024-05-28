@@ -36,7 +36,7 @@ def mitre_find_cve_ids(query: str) -> list[str]:
 
 def main() -> None:
     if globals.debug_mode:
-        query = "ffmpeg"
+        query = "vim"
         utils.gen_report(query)
         return
 
