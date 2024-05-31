@@ -10,6 +10,7 @@ states.init()
 
 import utils
 
+# init logger
 logger = utils.setup_logger(config.LOGGER_NAME)
 
 
