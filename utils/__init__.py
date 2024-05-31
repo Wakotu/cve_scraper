@@ -7,11 +7,11 @@ from typing import assert_never
 
 import colorlog
 import requests
-import vars
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 
 import config
+import states
 import utils
 
 encoder.FLOAT_REPR = lambda o: format(o, ".2f")
@@ -61,7 +61,7 @@ def plot_overview(queries: list[str], data: dict[str, list]) -> None:
     import matplotlib.pyplot as plt
     import numpy as np
 
-    if vars.debug_mode:
+    if states.debug_mode:
         __import__("ipdb").set_trace()
     assert len(queries) == len(list(data.values())[0])
 
@@ -91,7 +91,7 @@ def queries_overview() -> None:
     """
     collect reports from local disk and log the information
     """
-    if vars.nvd_mode:
+    if states.nvd_mode:
         dir = os.path.join(config.DATA_DIR, "nvd")
     else:
         dir = os.path.join(config.DATA_DIR, "mitre")
@@ -187,7 +187,7 @@ def object_to_dict(obj):
 
 
 def get_query_dir(query: str) -> str:
-    if vars.nvd_mode:
+    if states.nvd_mode:
         dir = os.path.join(config.DATA_DIR, "nvd", query)
     else:
         dir = os.path.join(config.DATA_DIR, "mitre", query)
@@ -265,7 +265,7 @@ def collect_time(rec: dict, time_dist: TimeDist) -> str:
 # TODO split nvd utils and mitre utils
 def collect_info(dir: str) -> Report:
     # List all entries in the directory
-    if vars.nvd_mode:
+    if states.nvd_mode:
         raise NotImplementedError()
     else:
         entries = os.listdir(dir)
@@ -283,7 +283,7 @@ def collect_info(dir: str) -> Report:
             with open(filename, "r", encoding="utf-8") as f:
                 rec = json.load(f)
 
-            if vars.debug_mode:
+            if states.debug_mode:
                 severity = collect_severity(rec, sev_dist, entry)
             else:
                 severity = collect_severity(rec, sev_dist)
@@ -338,7 +338,7 @@ def fetch_cve_record(cve_id: str, query: str) -> None:
     """
     fetch cve record and save it to local disk
     """
-    if vars.nvd_mode:
+    if states.nvd_mode:
         fetch_cve_record_nvd(cve_id, query)
     else:
         fetch_cve_record_mitre(cve_id, query)

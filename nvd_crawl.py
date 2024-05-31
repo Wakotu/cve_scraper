@@ -7,6 +7,7 @@ from termcolor import colored
 from tqdm import tqdm
 
 import config
+import states
 import utils
 
 logger = logging.getLogger(config.LOGGER_NAME)
@@ -140,8 +141,12 @@ def find_cves(cpe_search_link: str) -> list[str]:
 def main() -> None:
     # find cpe and corresponding cves
 
-    component = input(colored("Enter the component (e.g., Apache): ", "cyan"))
-    version = input(colored("Enter the version (e.g., 4.2.1): ", "cyan"))
+    if states.debug_mode:
+        component = "ffmpeg"
+        version = ""
+    else:
+        component = input(colored("Enter the component (e.g., Apache): ", "cyan"))
+        version = input(colored("Enter the version (e.g., 4.2.1): ", "cyan"))
 
     logger.info("searching for cpes...")
     cves_links = find_cpes(component, version)

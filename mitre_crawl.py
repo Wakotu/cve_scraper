@@ -1,12 +1,12 @@
 import logging
 
 import requests
-import vars
 from bs4 import BeautifulSoup
 from termcolor import colored
 from tqdm import tqdm
 
 import config
+import states
 import utils
 
 logger = logging.getLogger(config.LOGGER_NAME)
@@ -35,7 +35,7 @@ def mitre_find_cve_ids(query: str) -> list[str]:
 
 
 def main() -> None:
-    if vars.debug_mode:
+    if states.debug_mode:
         query = "vim"
         utils.gen_report(query)
         return
