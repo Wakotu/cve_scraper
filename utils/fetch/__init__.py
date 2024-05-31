@@ -5,8 +5,9 @@ import requests
 from bs4 import BeautifulSoup
 
 import states
+from utils.fetch.extract_nvd import extract_desc
 
-from .helper import get_query_dir
+from ..helper import get_query_dir
 
 
 def fetch_cve_record_mitre(cve_id: str, query: str) -> None:
@@ -31,6 +32,8 @@ def fetch_cve_record_nvd(cve_id: str, query: str) -> None:
     resp = requests.get(url)
     content = resp.text
     soup = BeautifulSoup(content, "html.parser")
+
+    desc = extract_desc(soup)
 
 
 def fetch_cve_record(cve_id: str, query: str) -> None:
