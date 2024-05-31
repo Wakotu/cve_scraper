@@ -2,6 +2,7 @@ import logging
 
 import requests
 from bs4 import BeautifulSoup
+from matplotlib.pyplot import isinteractive
 from termcolor import colored
 from tqdm import tqdm
 
@@ -13,6 +14,7 @@ logger = logging.getLogger(config.LOGGER_NAME)
 
 def total_end_extract(soup, total_num: int | None, cpe: bool) -> tuple[int, int]:
 
+    # whether in cpe searching stage
     if cpe:
         total_sel = (
             "#body-section > div:nth-child(2) > div.row > div:nth-child(2) > strong"
@@ -21,10 +23,14 @@ def total_end_extract(soup, total_num: int | None, cpe: bool) -> tuple[int, int]
     else:
         total_sel = "#vulnerability-search-results-div > div.row > div.col-sm-12.col-lg-3 > strong"
         end_sel = "#results-numbers-panel > strong:nth-child(2)"
+
     if total_num is None:
         num_tag = soup.select(total_sel)[0]
         assert num_tag is not None
-        total_num = int(num_tag.text)
+        num_str = num_tag.text
+        assert isinstance(num_str, str)
+        num_str = num_str.replace(",", "")
+        total_num = int(num_str)
 
     num_tag = soup.select(end_sel)[0]
     assert num_tag is not None
@@ -75,6 +81,8 @@ def find_cpes(component: str, version: str) -> list[str]:
     total_links = []
 
     while total_num is None or start_index < total_num:
+        if total_num is not None and start_index > 0:
+            logger.info(f"cpe collecting: {start_index}/{total_num}")
         cves_links, start_index, total_num = find_cpes_part(
             component, version, start_index, total_num
         )

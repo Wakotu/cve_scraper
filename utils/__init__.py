@@ -7,10 +7,11 @@ from typing import assert_never
 
 import colorlog
 import requests
+import vars
+from bs4 import BeautifulSoup
 from tqdm import tqdm
 
 import config
-import globals
 import utils
 
 encoder.FLOAT_REPR = lambda o: format(o, ".2f")
@@ -60,7 +61,7 @@ def plot_overview(queries: list[str], data: dict[str, list]) -> None:
     import matplotlib.pyplot as plt
     import numpy as np
 
-    if globals.debug_mode:
+    if vars.debug_mode:
         __import__("ipdb").set_trace()
     assert len(queries) == len(list(data.values())[0])
 
@@ -90,7 +91,7 @@ def queries_overview() -> None:
     """
     collect reports from local disk and log the information
     """
-    if globals.nvd_mode:
+    if vars.nvd_mode:
         dir = os.path.join(config.DATA_DIR, "nvd")
     else:
         dir = os.path.join(config.DATA_DIR, "mitre")
@@ -144,8 +145,8 @@ def fetch_and_conclude(cve_id_list: list[str], query: str) -> None:
     logger.info("start to collect each cve...")
     for cve_id in tqdm(cve_id_list):
         utils.fetch_cve_record(cve_id, query)
-    report = utils.gen_report(query)
 
+    report = utils.gen_report(query)
     # report logging
     logger.info(f"report for {query}")
     logger.info(f"total cve number: {report.total_num}, Distribution follows:")
@@ -186,7 +187,7 @@ def object_to_dict(obj):
 
 
 def get_query_dir(query: str) -> str:
-    if globals.nvd_mode:
+    if vars.nvd_mode:
         dir = os.path.join(config.DATA_DIR, "nvd", query)
     else:
         dir = os.path.join(config.DATA_DIR, "mitre", query)
@@ -261,9 +262,12 @@ def collect_time(rec: dict, time_dist: TimeDist) -> str:
     return time
 
 
+# TODO split nvd utils and mitre utils
 def collect_info(dir: str) -> Report:
-    try:
-        # List all entries in the directory
+    # List all entries in the directory
+    if vars.nvd_mode:
+        raise NotImplementedError()
+    else:
         entries = os.listdir(dir)
         # Count the number of entries
         num_entries = 0
@@ -279,7 +283,7 @@ def collect_info(dir: str) -> Report:
             with open(filename, "r", encoding="utf-8") as f:
                 rec = json.load(f)
 
-            if globals.debug_mode:
+            if vars.debug_mode:
                 severity = collect_severity(rec, sev_dist, entry)
             else:
                 severity = collect_severity(rec, sev_dist)
@@ -290,16 +294,6 @@ def collect_info(dir: str) -> Report:
             score += calc_score(severity, time)
 
         return Report(num_entries, sev_dist, time_dist, score)
-
-    except FileNotFoundError:
-        print(f"Error: The directory '{dir}' does not exist.")
-        exit(1)
-    except PermissionError:
-        print(f"Error: Permission denied to access '{dir}'.")
-        exit(1)
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
-        exit(1)
 
 
 def gen_report(query: str) -> Report:
@@ -316,10 +310,11 @@ def gen_report(query: str) -> Report:
     return report
 
 
-def fetch_cve_record(cve_id: str, query: str) -> None:
+def fetch_cve_record_mitre(cve_id: str, query: str) -> None:
     """
-    fetch cve record and save it to local disk
+    fetch cve under mitre mode
     """
+
     base_url = "https://cveawg.mitre.org/api/cve/"
     resp = requests.get(base_url + cve_id)
     res = resp.json()
@@ -329,6 +324,24 @@ def fetch_cve_record(cve_id: str, query: str) -> None:
     filename = os.path.join(dir, f"{cve_id}.json")
     with open(filename, "w", encoding="utf-8") as f:
         json.dump(res, f, indent=4)
+
+
+def fetch_cve_record_nvd(cve_id: str, query: str) -> None:
+    base_url = "https://nvd.nist.gov/vuln/detail/"
+    url = base_url + cve_id
+    resp = requests.get(url)
+    content = resp.text
+    soup = BeautifulSoup(content, "html.parser")
+
+
+def fetch_cve_record(cve_id: str, query: str) -> None:
+    """
+    fetch cve record and save it to local disk
+    """
+    if vars.nvd_mode:
+        fetch_cve_record_nvd(cve_id, query)
+    else:
+        fetch_cve_record_mitre(cve_id, query)
 
 
 def setup_logger(logger_name: str) -> logging.Logger:

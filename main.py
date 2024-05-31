@@ -1,12 +1,13 @@
 import argparse
 
+import vars
+
 import config
-import globals
 import mitre_crawl
 import nvd_crawl
 
 # global vars
-globals.init()
+vars.init()
 
 import utils
 
@@ -32,14 +33,14 @@ def parse_args() -> argparse.Namespace:
 if __name__ == "__main__":
     args = parse_args()
     # handle args and modify global states
-    globals.debug_mode = args.debug
-    globals.nvd_mode = args.nvd
+    vars.debug_mode = args.debug
+    vars.nvd_mode = args.nvd
 
     if args.overview:
         utils.queries_overview()
         exit(0)
 
-    if globals.nvd_mode:
+    if vars.nvd_mode:
         nvd_crawl.main()
     else:
         mitre_crawl.main()
