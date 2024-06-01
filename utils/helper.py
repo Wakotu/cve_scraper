@@ -1,5 +1,8 @@
 import os
 
+import requests
+from bs4 import BeautifulSoup
+
 import config
 import states
 
@@ -26,6 +29,15 @@ def object_to_dict(obj):
     else:
         # If obj is not a dictionary, class instance, list, tuple, or set, return it as-is
         return obj
+
+
+def get_soup(url: str) -> BeautifulSoup:
+    """
+    get soup object based on url
+    """
+    resp = requests.get(url)
+    soup = BeautifulSoup(resp.text, "html.parser")
+    return soup
 
 
 def get_query_dir(query: str) -> str:

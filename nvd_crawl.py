@@ -33,9 +33,13 @@ def total_end_extract(soup, total_num: int | None, cpe: bool) -> tuple[int, int]
         num_str = num_str.replace(",", "")
         total_num = int(num_str)
 
-    num_tag = soup.select(end_sel)[0]
-    assert num_tag is not None
-    end_index = int(num_tag.text) - 1
+    try:
+        num_tag = soup.select(end_sel)[0]
+        assert num_tag is not None
+        end_index = int(num_tag.text) - 1
+    except IndexError:
+        # no page range information
+        end_index = total_num - 1
 
     return total_num, end_index
 
@@ -143,7 +147,7 @@ def main() -> None:
 
     if states.debug_mode:
         component = "ffmpeg"
-        version = ""
+        version = "6"
     else:
         component = input(colored("Enter the component (e.g., Apache): ", "cyan"))
         version = input(colored("Enter the version (e.g., 4.2.1): ", "cyan"))
@@ -159,4 +163,6 @@ def main() -> None:
         total_cve_ids.update(cve_ids)
     total_cve_ids = list(total_cve_ids)
 
+    if states.debug_mode:
+        __import__("ipdb").set_trace()
     utils.fetch_and_conclude(total_cve_ids, f"{component}:{version}")
