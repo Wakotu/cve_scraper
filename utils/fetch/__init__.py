@@ -2,7 +2,6 @@ import json
 import os
 
 import requests
-from bs4 import BeautifulSoup
 
 import states
 from utils.fetch.extract_nvd import (
@@ -12,7 +11,7 @@ from utils.fetch.extract_nvd import (
     extract_desc,
 )
 
-from ..helper import get_query_dir
+from ..helper import get_query_dir, get_soup
 
 
 def fetch_cve_record_mitre(cve_id: str) -> dict:
@@ -27,25 +26,21 @@ def fetch_cve_record_mitre(cve_id: str) -> dict:
 
 
 def fetch_cve_record_nvd(cve_id: str) -> dict:
-    if states.debug_mode:
-        __import__("ipdb").set_trace()
     base_url = "https://nvd.nist.gov/vuln/detail/"
     url = base_url + cve_id
-    resp = requests.get(url)
-    content = resp.text
-    soup = BeautifulSoup(content, "html.parser")
+    soup = get_soup(url)
 
     desc = extract_desc(soup)
-    cvss = extract_cvss(soup)
+    cvss_list = extract_cvss(soup)
     date = extract_date(soup)
-    cwe = extract_cwe(soup)
+    cwe_list = extract_cwe(soup)
 
     # integrate all collected record to a dict -> specify `key` string
     rec = {
         "desc": desc,
-        "cvss": vars(cvss),
+        "cvss": [vars(cvss) for cvss in cvss_list],
         "date": vars(date),
-        "cwe": vars(cwe),
+        "cwe": [vars(cwe) for cwe in cwe_list],
     }
     return rec
 

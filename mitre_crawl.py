@@ -35,10 +35,6 @@ def mitre_find_cve_ids(query: str) -> list[str]:
 
 
 def main() -> None:
-    if states.debug_mode:
-        query = "vim"
-        utils.gen_report(query)
-        return
 
     query = input(colored("Enter the keyword (e.g., Apache): ", "cyan"))
     logger.info("collecting cve ids...")

@@ -1,7 +1,7 @@
 import os
 
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
 import config
 import states
@@ -48,3 +48,21 @@ def get_query_dir(query: str) -> str:
     if not os.path.exists(dir):
         os.makedirs(dir)
     return dir
+
+
+# debug helper
+
+
+def show_tag(root: Tag, depth: int) -> None:
+    def show_tag_recur(root: Tag, depth: int, cur: int) -> None:
+        if cur > depth:
+            return
+        indent = "  "
+        print(f"{indent * cur}{root.name}")
+
+        for child in root.children:
+            if not isinstance(child, Tag):
+                continue
+            show_tag_recur(child, depth, cur + 1)
+
+    show_tag_recur(root, depth, 0)

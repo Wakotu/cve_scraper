@@ -2,7 +2,6 @@ import logging
 
 import requests
 from bs4 import BeautifulSoup
-from matplotlib.pyplot import isinteractive
 from termcolor import colored
 from tqdm import tqdm
 
@@ -145,12 +144,8 @@ def find_cves(cpe_search_link: str) -> list[str]:
 def main() -> None:
     # find cpe and corresponding cves
 
-    if states.debug_mode:
-        component = "ffmpeg"
-        version = "6"
-    else:
-        component = input(colored("Enter the component (e.g., Apache): ", "cyan"))
-        version = input(colored("Enter the version (e.g., 4.2.1): ", "cyan"))
+    component = input(colored("Enter the component (e.g., Apache): ", "cyan"))
+    version = input(colored("Enter the version (e.g., 4.2.1): ", "cyan"))
 
     logger.info("searching for cpes...")
     cves_links = find_cpes(component, version)
@@ -163,6 +158,4 @@ def main() -> None:
         total_cve_ids.update(cve_ids)
     total_cve_ids = list(total_cve_ids)
 
-    if states.debug_mode:
-        __import__("ipdb").set_trace()
     utils.fetch_and_conclude(total_cve_ids, f"{component}:{version}")

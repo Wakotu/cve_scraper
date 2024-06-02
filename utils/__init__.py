@@ -76,7 +76,10 @@ def get_dist_str(dist_dict: dict, prompt: str) -> str:
 
 
 def fetch_and_conclude(cve_id_list: list[str], query: str) -> None:
-
+    # abort on empty cve list
+    if len(cve_id_list) == 0:
+        logger.warning("No cve records found")
+        return
     logger.info("start to collect each cve...")
     for cve_id in tqdm(cve_id_list):
         fetch_cve_record(cve_id, query)
