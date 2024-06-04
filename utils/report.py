@@ -45,10 +45,30 @@ def calc_score(sev: str, time: str) -> float:
     return SEVERITY_SCORE.get(sev, 0) * TIME_FACTOR.get(time, 0)
 
 
+def add_one(obj, attr: str) -> None:
+    val = getattr(obj, attr) + 1
+    setattr(obj, attr, val)
+
+
 def collect_severity(rec: dict, sev_dist: SeverDist, entry: str = "") -> str:
     """
-    returns the severity string
+    returns the severity string and update distribution
     """
+
+    if states.nvd_mode:
+        sev = "UNKNOWN"
+        cvss_list = rec["cvss"]
+        for cvss in cvss_list:
+            score = cvss["score"]
+            assert isinstance(score, str)
+            score = score.strip()
+            if score == "N/A":
+                continue
+            sev = score.split()[-1]
+            break
+
+        add_one(sev_dist, sev)
+        return sev
 
     try:
         metrics = rec["containers"]["cna"]["metrics"]
@@ -80,8 +100,7 @@ def collect_severity(rec: dict, sev_dist: SeverDist, entry: str = "") -> str:
     try:
         severity = info["baseSeverity"]
         assert isinstance(severity, str)
-        val = getattr(sev_dist, severity) + 1
-        setattr(sev_dist, severity, val)
+        add_one(sev_dist, severity)
         return severity
     except KeyError:
         sev_dist.UNKNOWN += 1
@@ -89,21 +108,30 @@ def collect_severity(rec: dict, sev_dist: SeverDist, entry: str = "") -> str:
 
 
 def collect_time(rec: dict, time_dist: TimeDist) -> str:
-    try:
-        date_str = rec["cveMetadata"]["datePublished"]
-    except KeyError:
-        date_str = rec["cveMetadata"]["dateUpdated"]
+    """
+    returns time str and update distribution
+    """
+    # collect year attribute
+    if states.nvd_mode:
+        date_str = rec["date"]["published"]
+        assert isinstance(date_str, str)
+        year = date_str.split("/")[-1]
+    else:
+        try:
+            date_str = rec["cveMetadata"]["datePublished"]
+        except KeyError:
+            date_str = rec["cveMetadata"]["dateUpdated"]
 
-    assert isinstance(date_str, str)
-    year = date_str.split("-")[0]
+        assert isinstance(date_str, str)
+        year = date_str.split("-")[0]
+
     if year <= "2010":
         time = "DISTANT"
     elif year <= "2020":
         time = "INTM"
     else:
         time = "RECENT"
-    val = getattr(time_dist, time) + 1
-    setattr(time_dist, time, val)
+    add_one(time_dist, time)
     return time
 
 
@@ -111,7 +139,11 @@ def collect_time(rec: dict, time_dist: TimeDist) -> str:
 def collect_info(dir: str) -> Report:
     # List all entries in the directory
     if states.nvd_mode:
-        raise NotImplementedError()
+        # implement in nvd mode
+        entries = os.listdir(dir)
+        num_entries = len(entries)
+        sev_dist = SeverDist()
+        time_dist = TimeDist()
     else:
         entries = os.listdir(dir)
         # Count the number of entries
@@ -128,17 +160,14 @@ def collect_info(dir: str) -> Report:
             with open(filename, "r", encoding="utf-8") as f:
                 rec = json.load(f)
 
-            if states.debug_mode:
-                severity = collect_severity(rec, sev_dist, entry)
-            else:
-                severity = collect_severity(rec, sev_dist)
+            severity = collect_severity(rec, sev_dist)
             try:
                 time = collect_time(rec, time_dist)
             except KeyError as e:
                 assert False, f"error in time info collecting of {entry}: {e}"
             score += calc_score(severity, time)
 
-        return Report(num_entries, sev_dist, time_dist, score)
+    return Report(num_entries, sev_dist, time_dist, score)
 
 
 def gen_report(query: str) -> Report:
