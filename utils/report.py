@@ -14,6 +14,9 @@ TIME_FACTOR = {
 }
 
 
+# TODO: need to add cwe statistics for nvd mode
+
+
 @dataclass
 class SeverDist:
     LOW: int = 0
@@ -138,34 +141,29 @@ def collect_time(rec: dict, time_dist: TimeDist) -> str:
 # TODO split nvd utils and mitre utils
 def collect_info(dir: str) -> Report:
     # List all entries in the directory
-    if states.nvd_mode:
-        # implement in nvd mode
-        entries = os.listdir(dir)
-        num_entries = len(entries)
-        sev_dist = SeverDist()
-        time_dist = TimeDist()
-    else:
-        entries = os.listdir(dir)
-        # Count the number of entries
-        num_entries = 0
-        sev_dist = SeverDist()
-        time_dist = TimeDist()
-        score = 0
-        for entry in entries:
-            if not entry.startswith("CVE"):
-                continue
-            num_entries += 1
+    entries = os.listdir(dir)
+    # Count the number of entries
+    num_entries = 0
+    sev_dist = SeverDist()
+    time_dist = TimeDist()
+    score = 0
+    for entry in entries:
+        if not entry.startswith("CVE"):
+            continue
+        num_entries += 1
 
-            filename = os.path.join(dir, entry)
-            with open(filename, "r", encoding="utf-8") as f:
-                rec = json.load(f)
+        filename = os.path.join(dir, entry)
+        with open(filename, "r", encoding="utf-8") as f:
+            rec = json.load(f)
 
-            severity = collect_severity(rec, sev_dist)
-            try:
-                time = collect_time(rec, time_dist)
-            except KeyError as e:
-                assert False, f"error in time info collecting of {entry}: {e}"
-            score += calc_score(severity, time)
+        if states.debug_mode:
+            __import__("ipdb").set_trace()
+        severity = collect_severity(rec, sev_dist)
+        try:
+            time = collect_time(rec, time_dist)
+        except KeyError as e:
+            assert False, f"error in time info collecting of {entry}: {e}"
+        score += calc_score(severity, time)
 
     return Report(num_entries, sev_dist, time_dist, score)
 
