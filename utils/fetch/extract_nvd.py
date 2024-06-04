@@ -87,14 +87,16 @@ def get_cwe_desc(url: str) -> str:
     return desc_tags[0].text
 
 
-def extract_cwe(soup: BeautifulSoup) -> list[CweRec]:
+def extract_cwe(soup: BeautifulSoup, entry_url: str = "") -> list[CweRec]:
     id_tags = soup.select(
         "#vulnTechnicalDetailsDiv > table > tbody > tr > td:nth-child(1) > a"
     )
     name_tags = soup.select(
         "#vulnTechnicalDetailsDiv > table > tbody > tr > td:nth-child(2)"
     )
-    assert len(id_tags) == len(name_tags)
+    assert len(id_tags) == len(
+        name_tags
+    ), f"unequal cwe id and names in url: {entry_url}"
     num_cwe = len(id_tags)
     res = []
     for ind in range(num_cwe):
