@@ -156,8 +156,6 @@ def collect_info(dir: str) -> Report:
         with open(filename, "r", encoding="utf-8") as f:
             rec = json.load(f)
 
-        if states.debug_mode:
-            __import__("ipdb").set_trace()
         severity = collect_severity(rec, sev_dist)
         try:
             time = collect_time(rec, time_dist)

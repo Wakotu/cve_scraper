@@ -2,7 +2,7 @@
 import re
 from dataclasses import dataclass
 
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
 import states
 
@@ -31,6 +31,7 @@ class CweRec:
 
 
 def text_repr(s: str) -> str:
+    s = s.strip()
     return re.sub(r"\s+", " ", s)
 
 
@@ -88,26 +89,43 @@ def get_cwe_desc(url: str) -> str:
 
 
 def extract_cwe(soup: BeautifulSoup, entry_url: str = "") -> list[CweRec]:
+    # FIXME: id tag is not always <a> tag and should not extract at this level
     id_tags = soup.select(
-        "#vulnTechnicalDetailsDiv > table > tbody > tr > td:nth-child(1) > a"
+        "#vulnTechnicalDetailsDiv > table > tbody > tr > td:nth-child(1)"
     )
     name_tags = soup.select(
         "#vulnTechnicalDetailsDiv > table > tbody > tr > td:nth-child(2)"
     )
+    # FIXME: not equality debug
+    if states.debug_mode and len(id_tags) != len(name_tags):
+        __import__("ipdb").set_trace()
     assert len(id_tags) == len(
         name_tags
     ), f"unequal cwe id and names in url: {entry_url}"
-    num_cwe = len(id_tags)
     res = []
-    for ind in range(num_cwe):
-        id = id_tags[ind].text
+    # definition for id_tag changes here
+    for id_cell, name_tag in zip(id_tags, name_tags):
+        id_tag = None
+        if id_cell.string is not None:
+            id_tag = id_cell
+        else:
+            # get the first child string
+            for child in id_cell.children:
+                if not isinstance(child, Tag):
+                    continue
+                id_tag = child
+                break
+        assert id_tag, f"failed to find id_tag in url: {entry_url}"
+        id = id_tag.string
+        assert id, f"incorrect id_tag in url: {entry_url}"
+        name = name_tag.string
         id = text_repr(id)
-        name = name_tags[ind].text
+        assert name, f"incorrect name_tag in url: {entry_url}"
         name = text_repr(name)
-        if id_tags[ind].name != "a":
+        if id_tag.name != "a":
             desc = "not found"
         else:
-            url = id_tags[ind]["href"]
+            url = id_tag["href"]
             assert isinstance(url, str)
             desc = get_cwe_desc(url)
             desc = text_repr(desc)

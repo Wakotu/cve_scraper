@@ -33,7 +33,7 @@ def fetch_cve_record_nvd(cve_id: str) -> dict:
     desc = extract_desc(soup)
     cvss_list = extract_cvss(soup)
     date = extract_date(soup)
-    cwe_list = extract_cwe(soup)
+    cwe_list = extract_cwe(soup, url)
 
     # integrate all collected record to a dict -> specify `key` string
     rec = {

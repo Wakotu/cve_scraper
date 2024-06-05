@@ -5,8 +5,6 @@ def plot_overview(queries: list[str], data: dict[str, list]) -> None:
     import matplotlib.pyplot as plt
     import numpy as np
 
-    if states.debug_mode:
-        __import__("ipdb").set_trace()
     assert len(queries) == len(list(data.values())[0])
 
     x = np.arange(len(queries))  # the label locations
